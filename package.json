@@ -1,0 +1,19 @@
+{
+  "name": "nodebot-motion-controller",
+  "version": "0.1.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cobs": "^0.2.1",
+    "express": "^4.17.1",
+    "ramp.js": "^1.2.1",
+    "robotlib": "github:eriknoorland/node-robotlib",
+    "serialport": "^9.0.1",
+    "socket.io": "^3.0.4"
+  }
+}
