@@ -19,16 +19,18 @@ function init() {
  */
 function onMotionControllerInitialized() {
   motionController.setTrackPose(true);
+  // motionController.setDebugLevel(1);
 
   // FIXME, set after solving start vector
   // motionController.appendPose({ x: 170, y: 210, phi: 0 });
 
+  // motionController.on('debug', console.log);
   // motionController.on('odometry', console.log);
   // motionController.on('pose', console.log);
   // motionController.on('speed', console.log);
 
   // TEST
-  motionController.distanceHeading(350, 0)
+  motionController.distanceHeading(500, 0)
     .then(motionController.close);
 
   // motionController.rotate(-(Math.PI / 2))

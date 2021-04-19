@@ -1,6 +1,7 @@
 const Transform = require('stream').Transform;
 const cobs = require('cobs');
 const odometryParser = require('./parsers/odometry');
+const debugParser = require('./parsers/debug');
 const numDescriptorBytes = 4;
 
 /**
@@ -56,6 +57,10 @@ class Parser extends Transform {
               case 0x30:
                 this.emit('odometry', odometryParser(packetData));
                 break;
+
+                case 0x35:
+                  this.emit('debug', debugParser(packetData));
+                  break;
             }
           }
         }

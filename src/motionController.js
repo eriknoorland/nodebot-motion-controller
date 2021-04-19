@@ -8,6 +8,7 @@ const motionTarget = require('./motionTarget');
 
 const REQUEST_START_FLAG = 0xA3;
 const REQUEST_IS_READY = 0x01;
+const REQUEST_DEBUG_LEVEL = 0x02;
 const REQUEST_SET_DIRECTION = 0x10;
 const REQUEST_SET_SPEED = 0x11;
 const REQUEST_STOP = 0x13;
@@ -99,6 +100,7 @@ const motionController = (path, config) => {
       port.on('open', onPortOpen);
 
       parser.on('odometry', onOdometryData);
+      parser.on('debug', data => eventEmitter.emit('debug', data));
       parser.on('ready', () => {
         clearTimeout(isReadyTimeout);
         isReady = true;
@@ -113,6 +115,17 @@ const motionController = (path, config) => {
    */
   function isReady() {
     writeToSerialPort([REQUEST_START_FLAG, REQUEST_IS_READY]);
+
+    return Promise.resolve();
+  }
+
+  /**
+   * Set the debug level
+   * @param {Number} debug
+   * @return {Promise}
+   */
+  function setDebugLevel(debug = 0) {
+    writeToSerialPort([REQUEST_START_FLAG, REQUEST_DEBUG_LEVEL, debug]);
 
     return Promise.resolve();
   }
@@ -425,6 +438,7 @@ const motionController = (path, config) => {
     close,
     init,
     isReady,
+    setDebugLevel,
     setTrackPose,
     getPose,
     appendPose,
