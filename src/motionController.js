@@ -51,7 +51,6 @@ const motionController = (path, config) => {
   let isConfigComplete = false;
   let missingConfigProps = [];
   let speedRamp = new Ramp();
-  let trackPose = false;
   let port;
   let parser;
 
@@ -128,14 +127,6 @@ const motionController = (path, config) => {
     writeToSerialPort([REQUEST_START_FLAG, REQUEST_DEBUG_LEVEL, debug]);
 
     return Promise.resolve();
-  }
-
-  /**
-   * Set whether to track the robots poses or not
-   * @param {Boolean} toggle
-   */
-  function setTrackPose(toggle) {
-    trackPose = toggle;
   }
 
   /**
@@ -381,8 +372,9 @@ const motionController = (path, config) => {
     const y = robotlib.utils.math.fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
     const phi = lastPose.phi - ((distanceRight - distanceLeft) / config.WHEEL_BASE);
     const pose = { x, y, phi };
+    const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
 
-    if (trackPose && (JSON.stringify(pose) !== JSON.stringify(lastPose))) {
+    if (hasPoseChanged) {
       appendPose(pose);
     }
 
@@ -439,7 +431,6 @@ const motionController = (path, config) => {
     init,
     isReady,
     setDebugLevel,
-    setTrackPose,
     getPose,
     appendPose,
     speedLeftRight,

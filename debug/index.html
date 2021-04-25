@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug</title>
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+
+      .controls__inner {
+        display: flex;
+        align-items: center;
+      }
+
+      .button {
+        min-width: 100px;
+      }
+
+      .graphWrapper {
+        height: calc(75vh / 4) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="controls">
+        <div class="controls__inner">
+          <button class="button" data-action data-method="distanceHeading">
+            Straight
+          </button>
+
+          <input type="text" id="distance" value="250" />
+          <input type="text" id="heading" value="0" />
+        </div>
+
+        <div class="controls__inner">
+          <button class="button" data-action data-method="rotate">
+            Rotate
+          </button>
+
+          <select id="angle">
+            <option value="90">90</option>
+            <option value="180">180</option>
+            <option value="360">360</option>
+          </select>
+
+          <label>
+            <input type="checkbox" id="direction">
+            CCW?
+          </label>
+        </div>
+      </div>
+
+      <h3>Left motor ticks</h3>
+      <div class="graphWrapper">
+        <canvas id="leftMotorChart" class="graph" width="400" height="400"></canvas>
+      </div>
+
+      <h3>Left motor PWM</h3>
+      <div class="graphWrapper">
+        <canvas id="leftMotorPWMChart" class="graph" width="400" height="400"></canvas>
+      </div>
+
+      <h3>Right motor ticks</h3>
+      <div class="graphWrapper">
+        <canvas id="rightMotorChart" class="graph" width="400" height="400"></canvas>
+      </div>
+
+      <h3>Right motor PWM</h3>
+      <div class="graphWrapper">
+        <canvas id="rightMotorPWMChart" class="graph" width="400" height="400"></canvas>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/main.js"></script>
+  </body>
+</html>
