@@ -48,6 +48,7 @@ const motionController = (path, config) => {
     'MAX_ROTATION_SPEED',
   ];
 
+  let trackPose = false;
   let isConfigComplete = false;
   let missingConfigProps = [];
   let speedRamp = new Ramp();
@@ -119,6 +120,16 @@ const motionController = (path, config) => {
   }
 
   /**
+   * Enable or disable tracking pose estimations for telemetry
+   * @return {Promise}
+   */
+  function setTrackPose(isEnabled) {
+    trackPose = isEnabled;
+
+    return Promise.resolve();
+  }
+
+  /**
    * Set the debug level
    * @param {Number} debug
    * @return {Promise}
@@ -143,7 +154,10 @@ const motionController = (path, config) => {
    */
   function appendPose(pose) {
     poses.push(pose);
-    eventEmitter.emit('pose', pose);
+
+    if (trackPose) {
+      eventEmitter.emit('pose', pose);
+    }
   }
 
   /**
@@ -169,11 +183,13 @@ const motionController = (path, config) => {
    */
   function speedHeading(speed, heading, callback) {
     return new Promise(resolve => {
+      const direction = speed > 0 ? FORWARD : REVERSE;
+
       if (speed > config.MAX_SPEED) {
         speed = config.MAX_SPEED;
       }
 
-      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...FORWARD]);
+      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...direction]);
       speedRamp = new Ramp();
 
       motionTargets.push(
@@ -199,14 +215,16 @@ const motionController = (path, config) => {
    */
   function distanceHeading(distance, heading) {
     return new Promise(resolve => {
+      const absoluteDistance = Math.abs(distance);
       const startPose = getPose();
-      const { speed: maxSpeed, acc } = calculateMaxSpeed(distance, config.MAX_SPEED);
+      const { speed: maxSpeed, acc } = calculateMaxSpeed(absoluteDistance, config.MAX_SPEED);
       const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
       const slowDistance = 2 * config.MIN_SPEED;
-      const decelerationTarget = distance - (slowDistance + decelerationDistance);
+      const decelerationTarget = absoluteDistance - (slowDistance + decelerationDistance);
       const hasAcceleration = acc > 1;
+      const direction = distance > 0 ? FORWARD : REVERSE;
 
-      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...FORWARD]);
+      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...direction]);
       speedRamp = new Ramp();
 
       motionTargets.push(
@@ -225,7 +243,7 @@ const motionController = (path, config) => {
 
       motionTargets.push(
         motionTarget('distanceHeading:stop', {
-          update: ({ pose }) => robotlib.utils.math.calculateDistance(startPose, pose) >= distance,
+          update: ({ pose }) => robotlib.utils.math.calculateDistance(startPose, pose) >= absoluteDistance,
           complete: () => stop(true).then(resolve),
         }));
     });
@@ -430,6 +448,7 @@ const motionController = (path, config) => {
     close,
     init,
     isReady,
+    setTrackPose,
     setDebugLevel,
     getPose,
     appendPose,
