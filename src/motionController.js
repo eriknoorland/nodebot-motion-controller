@@ -120,6 +120,17 @@ const motionController = (path, config) => {
   }
 
   /**
+   * Set PID gains for left and right motor
+   * @param {object} left { Kp, Ki, Kd }
+   * @param {object} right { Kp, Ki, Kd }
+   * @return {Promise}
+   */
+  function setPIDGains(left, right) {
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array
+    // https://stackoverflow.com/questions/29629597/how-to-convert-float-into-byte-array
+  }
+
+  /**
    * Enable or disable tracking pose estimations for telemetry
    * @return {Promise}
    */
@@ -448,6 +459,7 @@ const motionController = (path, config) => {
     close,
     init,
     isReady,
+    setPIDGains,
     setTrackPose,
     setDebugLevel,
     getPose,
