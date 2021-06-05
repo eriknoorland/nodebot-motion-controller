@@ -1,0 +1,8 @@
+module.exports = {
+  START_FLAG: 0xA3,
+  IS_READY: 0x01,
+  SET_DEBUG_LEVEL: 0x02,
+  SET_DIRECTION: 0x10,
+  SET_SPEED: 0x11,
+  STOP: 0x13,
+};

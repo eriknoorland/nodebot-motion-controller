@@ -10,8 +10,20 @@ function init() {
 function onMotionControllerInitialized() {
   motionController.on('pose', console.log);
 
-  motionController.distanceHeading(500, 0)
-    .then(motionController.close);
+  let doStop = false;
+
+  setTimeout(() => { doStop = true }, 2000);
+
+  motionController.speedHeading(400, 0, () => doStop)
+    .then(motionController.stop);
+  // motionController.distanceHeading(500, 0)
+  // motionController.rotate(-(Math.PI / 2))
+    // .then(motionController.close);
+
+    setTimeout(() => {
+      motionController.stop(true)
+        .then(motionController.close);
+    }, 5000);
 }
 
 init();

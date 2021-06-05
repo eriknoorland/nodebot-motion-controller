@@ -1,24 +1,13 @@
 const EventEmitter = require('events');
 const SerialPort = require('serialport');
 const cobs = require('cobs');
-const Ramp = require('ramp.js');
 const robotlib = require('robotlib');
 const Parser = require('./Parser');
-const motionTarget = require('./motionTarget');
-
-const REQUEST_START_FLAG = 0xA3;
-const REQUEST_IS_READY = 0x01;
-const REQUEST_DEBUG_LEVEL = 0x02;
-const REQUEST_SET_DIRECTION = 0x10;
-const REQUEST_SET_SPEED = 0x11;
-const REQUEST_STOP = 0x13;
-
-const FORWARD = [1, 0];
-const REVERSE = [0, 1];
-const ROTATE_LEFT = [0, 0];
-const ROTATE_RIGHT = [1, 1];
-
-const accelerationMode = 'SINUSOIDAL_INOUT';
+const requests = require('./requests');
+const makeOnSpeedHeading = require('./onSpeedHeading');
+const makeOnDistanceHeading = require('./onDistanceHeading');
+const makeOnRotate = require('./onRotate');
+const makeOnSoftStop = require('./onSoftStop');
 
 /**
  * motionController
@@ -28,8 +17,11 @@ const accelerationMode = 'SINUSOIDAL_INOUT';
  */
 const motionController = (path, config) => {
   const eventEmitter = new EventEmitter();
+  const onSpeedHeading = makeOnSpeedHeading(config, writeToSerialPort);
+  const onDistanceHeading = makeOnDistanceHeading(config, writeToSerialPort);
+  const onRotate = makeOnRotate(config, writeToSerialPort);
+  const onSoftStop = makeOnSoftStop(config, writeToSerialPort);
   const poses = [{ x: 0, y: 0, phi: 0 }];
-  const motionTargets = [];
   const requiredConfigProps = [
     'LOOP_TIME',
     'MOTOR_ENCODER_CPR',
@@ -43,6 +35,7 @@ const motionController = (path, config) => {
     'RIGHT_WHEEL_DIAMETER',
     'RIGHT_WHEEL_CIRCUMFERENCE',
     'RIGHT_DISTANCE_PER_TICK',
+    'ACCELERATION',
     'MIN_SPEED',
     'MAX_SPEED',
     'MAX_ROTATION_SPEED',
@@ -51,7 +44,7 @@ const motionController = (path, config) => {
   let trackPose = false;
   let isConfigComplete = false;
   let missingConfigProps = [];
-  let speedRamp = new Ramp();
+  let currentCommand;
   let port;
   let parser;
 
@@ -85,7 +78,7 @@ const motionController = (path, config) => {
 
       const isReadyTimeout = setTimeout(() => {
         if (!isReady) {
-          writeToSerialPort([REQUEST_START_FLAG, REQUEST_IS_READY]);
+          writeToSerialPort([requests.START_FLAG, requests.IS_READY]);
         }
       }, 1000);
 
@@ -94,9 +87,9 @@ const motionController = (path, config) => {
 
       port.pipe(parser);
 
-      port.on('error', error => console.log('motionController:error', error));
-      port.on('disconnect', () => console.log('motionController:disconnect'));
-      port.on('close', () => console.log('motionController:close'));
+      port.on('error', error => eventEmitter.emit('error', error));
+      port.on('disconnect', () => eventEmitter.emit('disconnect'));
+      port.on('close', () => eventEmitter.emit('close'));
       port.on('open', onPortOpen);
 
       parser.on('odometry', onOdometryData);
@@ -114,7 +107,7 @@ const motionController = (path, config) => {
    * @return {Promise}
    */
   function isReady() {
-    writeToSerialPort([REQUEST_START_FLAG, REQUEST_IS_READY]);
+    writeToSerialPort([requests.START_FLAG, requests.IS_READY]);
 
     return Promise.resolve();
   }
@@ -146,7 +139,7 @@ const motionController = (path, config) => {
    * @return {Promise}
    */
   function setDebugLevel(debug = 0) {
-    writeToSerialPort([REQUEST_START_FLAG, REQUEST_DEBUG_LEVEL, debug]);
+    writeToSerialPort([requests.START_FLAG, requests.SET_DEBUG_LEVEL, debug]);
 
     return Promise.resolve();
   }
@@ -182,8 +175,8 @@ const motionController = (path, config) => {
     const directionLeft = speedLeft > 0 ? 1 : 0;
     const directionRight = speedRight > 0 ? 0 : 1;
 
-    writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, directionLeft, directionRight]);
-    writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_SPEED, tickSpeedLeft, tickSpeedRight]);
+    writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, directionLeft, directionRight]);
+    writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, tickSpeedLeft, tickSpeedRight]);
   }
 
   /**
@@ -193,29 +186,13 @@ const motionController = (path, config) => {
    * @param {Number} heading
    */
   function speedHeading(speed, heading, callback) {
-    return new Promise(resolve => {
-      const direction = speed > 0 ? FORWARD : REVERSE;
-
-      if (speed > config.MAX_SPEED) {
-        speed = config.MAX_SPEED;
-      }
-
-      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...direction]);
-      speedRamp = new Ramp();
-
-      motionTargets.push(
-        motionTarget('speedHeading:start', {
-          init: () => speedRamp.go(speed, 1000, accelerationMode, 'ONCEFORWARD'),
-          update: callback,
-        }));
-
-      motionTargets.push(
-        motionTarget('speedHeading:decelerate', {
-          init: () => speedRamp.go(0, 1000, accelerationMode, 'ONCEFORWARD'),
-          update: ({ leftTicks, rightTicks }) => !leftTicks && !rightTicks,
-          complete: () => stop(true).then(resolve),
-        }));
+    const promise = new Promise(resolve => {
+      currentCommand = onSpeedHeading(speed, heading, callback, resolve);
     });
+
+    promise.then(resetCurrentCommand);
+
+    return promise;
   }
 
   /**
@@ -225,39 +202,13 @@ const motionController = (path, config) => {
    * @return {Promise}
    */
   function distanceHeading(distance, heading) {
-    return new Promise(resolve => {
-      const absoluteDistance = Math.abs(distance);
-      const startPose = getPose();
-      const { speed: maxSpeed, acc } = calculateMaxSpeed(absoluteDistance, config.MAX_SPEED);
-      const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
-      const slowDistance = 2 * config.MIN_SPEED;
-      const decelerationTarget = absoluteDistance - (slowDistance + decelerationDistance);
-      const hasAcceleration = acc > 1;
-      const direction = distance > 0 ? FORWARD : REVERSE;
-
-      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...direction]);
-      speedRamp = new Ramp();
-
-      motionTargets.push(
-        motionTarget('distanceHeading:start', {
-          init: () => speedRamp.go(maxSpeed, acc, accelerationMode, 'ONCEFORWARD'),
-          update: () => true,
-        }));
-
-      if (hasAcceleration) {
-        motionTargets.push(
-          motionTarget('distanceHeading:decelerate', {
-            update: ({ pose }) => robotlib.utils.math.calculateDistance(startPose, pose) >= decelerationTarget,
-            complete: () => speedRamp.go(config.MIN_SPEED, acc, accelerationMode, 'ONCEFORWARD'),
-          }));
-      }
-
-      motionTargets.push(
-        motionTarget('distanceHeading:stop', {
-          update: ({ pose }) => robotlib.utils.math.calculateDistance(startPose, pose) >= absoluteDistance,
-          complete: () => stop(true).then(resolve),
-        }));
+    const promise = new Promise(resolve => {
+      currentCommand = onDistanceHeading(distance, heading, getPose(), resolve);
     });
+
+    promise.then(resetCurrentCommand);
+
+    return promise;
   }
 
   /**
@@ -266,46 +217,13 @@ const motionController = (path, config) => {
    * @return {Promise}
    */
   function rotate(angle) {
-    return new Promise(resolve => {
-      const startPose = getPose();
-      const distance = Math.abs((config.WHEEL_BASE / 2) * angle);
-      const direction = angle < 0 ? ROTATE_LEFT : ROTATE_RIGHT;
-      const { speed: maxSpeed, acc } = calculateMaxSpeed(distance, config.MAX_ROTATION_SPEED);
-      const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
-      const slowDistance = 2 * config.MIN_SPEED;
-      const decelerationTarget = (distance - (slowDistance + decelerationDistance)) / (config.WHEEL_BASE / 2);
-      const hasAcceleration = acc > 1;
-
-      const update = (target, { pose }) => {
-        const rotationDifference = Math.abs(robotlib.utils.math.getRelativeAngleDifference(pose.phi, startPose.phi));
-        const targetDiff = robotlib.utils.math.getRelativeAngleDifference(target, rotationDifference);
-
-        return targetDiff <= 0.01; // FIXME?
-      };
-
-      writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_DIRECTION, ...direction]);
-      speedRamp = new Ramp();
-
-      motionTargets.push(
-        motionTarget('rotate:start', {
-          init: () => speedRamp.go(maxSpeed, acc, accelerationMode, 'ONCEFORWARD'),
-          update: () => true,
-        }));
-
-      if (hasAcceleration) {
-        motionTargets.push(
-          motionTarget('rotate:decelerate', {
-            update: update.bind(null, Math.abs(decelerationTarget)),
-            complete: () => speedRamp.go(config.MIN_SPEED, acc, accelerationMode, 'ONCEFORWARD'),
-          }));
-      }
-
-      motionTargets.push(
-        motionTarget('rotate:stop', {
-          update: update.bind(null, Math.abs(angle)),
-          complete: () => stop(true).then(resolve),
-        }));
+    const promise = new Promise(resolve => {
+      currentCommand = onRotate(angle, getPose(), resolve);
     });
+
+    promise.then(resetCurrentCommand);
+
+    return promise;
   }
 
   /**
@@ -314,21 +232,19 @@ const motionController = (path, config) => {
    * @return {Promise}
    */
   function stop(hardStop = false) {
-    return new Promise(resolve => {
-      if (hardStop) {
-        speedRamp.go(0, 0, accelerationMode, 'ONCEFORWARD');
-        writeToSerialPort([REQUEST_START_FLAG, REQUEST_STOP]);
+    if (hardStop) {
+      writeToSerialPort([requests.START_FLAG, requests.STOP]);
 
-        robotlib.utils.pause(250)
-          .then(resolve);
+      return Promise.resolve();
+    }
 
-        return;
-      }
-
-      speedRamp.go(0, 1000, accelerationMode);
-      robotlib.utils.pause(1250)
-        .then(resolve);
+    const promise = new Promise(resolve => {
+      currentCommand = onSoftStop(resolve);
     });
+
+    promise.then(resetCurrentCommand);
+
+    return promise;
   }
 
   /**
@@ -366,31 +282,12 @@ const motionController = (path, config) => {
 
   function onOdometryData(data) {
     const pose = calculatePose(poses[poses.length - 1], data);
-    const actualSpeed = calculateSpeed(data);
-    const targetSpeed = robotlib.utils.math.fixedDecimals(speedRamp.update() || 0, 2);
-    const tickSpeed = robotlib.utils.math.speedToTickSpeed(targetSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-    let leftTickSpeed = tickSpeed;
-    let rightTickSpeed = tickSpeed;
 
-    eventEmitter.emit('odometry', data);
-    eventEmitter.emit('speed', { target: targetSpeed, actual: actualSpeed });
-
-    if (motionTargets.length) {
-      const motionTarget = motionTargets[0];
-      motionTarget.init();
-
-      const result = motionTarget.update({ ...data, tickSpeed, pose });
-
-      if (result === true) {
-        motionTarget.complete();
-        motionTargets.shift();
-      }/* else {
-        leftTickSpeed += result.leftSpeedCorrection;
-        rightTickSpeed += result.righkSpeedCorrection;
-      }*/
+    if (currentCommand) {
+      currentCommand(data, pose);
     }
 
-    writeToSerialPort([REQUEST_START_FLAG, REQUEST_SET_SPEED, leftTickSpeed, rightTickSpeed]);
+    eventEmitter.emit('odometry', data);
   }
 
   function calculatePose(lastPose, { leftTicks, rightTicks }) {
@@ -410,31 +307,12 @@ const motionController = (path, config) => {
     return pose;
   }
 
-  function calculateMaxSpeed(distance, desiredSpeed) {
-    if (distance <= config.MIN_SPEED * 2) {
-      return { speed: config.MIN_SPEED, acc: 1 };
-    }
-
-    const accDistance = desiredSpeed * 0.5;
-    const decDistance = (desiredSpeed - config.MIN_SPEED) * 0.5;
-    const stopDistance = config.MIN_SPEED * 2;
-
-    if (accDistance + decDistance + stopDistance > distance) {
-      return calculateMaxSpeed(distance, desiredSpeed - 25);
-    }
-
-    return { speed: desiredSpeed, acc: 1000 };
-  };
-
-  function calculateSpeed({ leftTicks, rightTicks }) {
-    const currentLeftTickSpeed = robotlib.utils.math.tickSpeedToSpeed(leftTicks, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-    const currentRightTickSpeed = robotlib.utils.math.tickSpeedToSpeed(rightTicks, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
-
-    return (currentLeftTickSpeed + currentRightTickSpeed) * 0.5;
-  }
-
   function writeToSerialPort(data) {
     port.write(cobs.encode(Buffer.from(data), true));
+  }
+
+  function resetCurrentCommand() {
+    currentCommand = null;
   }
 
   function close() {
@@ -442,11 +320,9 @@ const motionController = (path, config) => {
   }
 
   function onPortOpen() {
-    console.log('motionController:open');
-
     port.flush(error => {
       if (error) {
-        console.log('motionController:error', error);
+        eventEmitter.emit('error', error);
       }
     });
   }
