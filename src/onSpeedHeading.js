@@ -1,7 +1,7 @@
 const robotlib = require('robotlib');
-const slope = require('./utils/slope');
 const requests = require('./requests');
 const motorDirections = require('./motorDirections');
+const slope = require('./utils/slope');
 
 const makeOnSpeedHeading = (config, writeToSerialPort) => {
   return (speedSetpoint, heading, callback, resolve) => {

@@ -8,22 +8,11 @@ function init() {
 }
 
 function onMotionControllerInitialized() {
+  motionController.setTrackPose(true);
   motionController.on('pose', console.log);
 
-  let doStop = false;
-
-  setTimeout(() => { doStop = true }, 2000);
-
-  motionController.speedHeading(400, 0, () => doStop)
-    .then(motionController.stop);
-  // motionController.distanceHeading(500, 0)
-  // motionController.rotate(-(Math.PI / 2))
-    // .then(motionController.close);
-
-    setTimeout(() => {
-      motionController.stop(true)
-        .then(motionController.close);
-    }, 5000);
+  motionController.distanceHeading(500, 0)
+    .then(motionController.close);
 }
 
 init();

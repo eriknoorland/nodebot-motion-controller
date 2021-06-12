@@ -1,8 +1,8 @@
 const robotlib = require('robotlib');
-const slope = require('./utils/slope');
-const calculateMaxSpeed = require('./utils/calculateMaxSpeed');
 const requests = require('./requests');
 const motorDirections = require('./motorDirections');
+const calculateMaxSpeed = require('./utils/calculateMaxSpeed');
+const slope = require('./utils/slope');
 
 // TODO add ability to force direction?
 

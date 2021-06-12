@@ -1,6 +1,6 @@
 const robotlib = require('robotlib');
-const slope = require('./utils/slope');
 const requests = require('./requests');
+const slope = require('./utils/slope');
 
 const makeOnSoftStop = (config, writeToSerialPort) => {
   return (resolve) => {
