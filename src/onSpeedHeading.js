@@ -33,27 +33,3 @@ const makeOnSpeedHeading = (config, writeToSerialPort) => {
 };
 
 module.exports = makeOnSpeedHeading;
-
-// return new Promise(resolve => {
-//   const direction = speed > 0 ? motorDirections.FORWARD : motorDirections.REVERSE;
-
-//   if (speed > config.MAX_SPEED) {
-//     speed = config.MAX_SPEED;
-//   }
-
-//   writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, ...direction]);
-//   speedRamp = new Ramp();
-
-//   motionTargets.push(
-//     motionTarget('speedHeading:start', {
-//       init: () => speedRamp.go(speed, 1000, accelerationMode, 'ONCEFORWARD'),
-//       update: callback,
-//     }));
-
-//   motionTargets.push(
-//     motionTarget('speedHeading:decelerate', {
-//       init: () => speedRamp.go(0, 1000, accelerationMode, 'ONCEFORWARD'),
-//       update: ({ leftTicks, rightTicks }) => !leftTicks && !rightTicks,
-//       complete: () => stop(true).then(resolve),
-//     }));
-// });
