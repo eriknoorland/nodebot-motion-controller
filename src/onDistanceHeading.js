@@ -11,6 +11,7 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
     const maxSpeed = calculateMaxSpeed(absoluteDistance, config.MAX_SPEED, config.MIN_SPEED);
     const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
     const decelerationTarget = absoluteDistance - (config.MIN_SPEED + decelerationDistance);
+    const Kp = 125;
 
     let speedSetpoint = maxSpeed;
     let isAtDecelerationTarget = false;
@@ -22,13 +23,13 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
 
     return (deltaTicks, pose) => {
       const distanceTravelled = robotlib.utils.math.calculateDistance(startPose, pose);
+      const headingError = heading - pose.phi;
 
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
 
-      // FIXME are we moving in a "straight" line (heading)?
-      // const headingDiff = startPose.phi {something} pose.phi;
-      // adjust left and right speeds accordingly (PID?)
+      leftSpeed += Math.round(headingError * Kp);
+      rightSpeed -= Math.round(headingError * Kp);
 
       if (!isAtDecelerationTarget && distanceTravelled >= decelerationTarget) {
         isAtDecelerationTarget = true;
