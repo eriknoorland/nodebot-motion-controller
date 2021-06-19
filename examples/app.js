@@ -2,16 +2,10 @@ const MotionController = require('../src/motionController');
 const config = require('./config');
 const motionController = MotionController('/dev/tty.usbmodem82403301', config);
 
-function init() {
-  motionController.init()
-    .then(onMotionControllerInitialized);
-}
-
-function onMotionControllerInitialized() {
-  motionController.on('pose', console.log);
-
-  motionController.distanceHeading(500, 0)
-    .then(motionController.close);
+async function init() {
+  await motionController.init();
+  await motionController.distanceHeading(1000, 0);
+  await motionController.close();
 }
 
 init();
