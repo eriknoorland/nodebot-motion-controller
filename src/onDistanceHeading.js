@@ -11,11 +11,12 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
     const maxSpeed = calculateMaxSpeed(absoluteDistance, config.MAX_SPEED, config.MIN_SPEED);
     const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
     const decelerationTarget = absoluteDistance - (config.MIN_SPEED + decelerationDistance);
-    const Kp = 125;
+    const KpDirection = distance > 0 ? 1 : -1;
+    const Kp = 100;
 
     let speedSetpoint = maxSpeed;
-    let isAtDecelerationTarget = false;
-    let isAtStopTarget = false;
+    let hasPassedDecelerationTarget = false;
+    let hasPassedStopTarget = false;
     let leftSpeed = 0;
     let rightSpeed = 0;
 
@@ -28,25 +29,28 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
 
-      leftSpeed += Math.round(headingError * Kp);
-      rightSpeed -= Math.round(headingError * Kp);
+      leftSpeed += Math.round(headingError * Kp) * KpDirection;
+      rightSpeed -= Math.round(headingError * Kp) * KpDirection;
 
-      if (!isAtDecelerationTarget && distanceTravelled >= decelerationTarget) {
-        isAtDecelerationTarget = true;
+      if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
+        hasPassedDecelerationTarget = true;
         speedSetpoint = config.MIN_SPEED;
       }
 
-      if (!isAtStopTarget && distanceTravelled >= absoluteDistance) {
-        isAtStopTarget = true;
+      if (!hasPassedStopTarget && distanceTravelled >= absoluteDistance) {
+        hasPassedStopTarget = true;
         speedSetpoint = 0;
       }
+
+      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, maxSpeed);
+      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, maxSpeed);
 
       const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
       const rightTickSpeed = robotlib.utils.math.speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
 
       writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, leftTickSpeed, rightTickSpeed]);
 
-      if (isAtStopTarget && !leftTickSpeed && !rightTickSpeed) {
+      if (hasPassedStopTarget && !leftTickSpeed && !rightTickSpeed) {
         resolve();
       }
     };
