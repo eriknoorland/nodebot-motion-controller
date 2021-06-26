@@ -4,10 +4,11 @@ const motorDirections = require('./motorDirections');
 const slope = require('./utils/slope');
 
 const makeOnSpeedHeading = (config, writeToSerialPort) => {
-  return (speedSetpoint, heading, callback, resolve) => {
+  return (speed, heading, callback, resolve) => {
+    const isForward = speed > 0;
+    const speedSetpoint = speed - (10 * (isForward ? 1 : -1));
     const direction = speedSetpoint > 0 ? motorDirections.FORWARD : motorDirections.REVERSE;
-    const KpDirection = speedSetpoint > 0 ? 1 : -1;
-    const Kp = 100;
+    const KpDirection = isForward ? 1 : -1;
 
     let leftSpeed = 0;
     let rightSpeed = 0;
@@ -15,16 +16,16 @@ const makeOnSpeedHeading = (config, writeToSerialPort) => {
     writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, ...direction]);
 
     return (deltaTicks, pose) => {
-      const headingError = heading - pose.phi;
+      const headingError = Number((heading - pose.phi).toFixed(6));
 
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
 
-      leftSpeed += Math.round(headingError * Kp) * KpDirection;
-      rightSpeed -= Math.round(headingError * Kp) * KpDirection;
+      leftSpeed += Math.round(headingError * config.HEADING_KP) * KpDirection;
+      rightSpeed -= Math.round(headingError * config.HEADING_KP) * KpDirection;
 
-      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, config.MAX_SPEED);
-      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, config.MAX_SPEED);
+      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, speed);
+      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, speed);
 
       const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
       const rightTickSpeed = robotlib.utils.math.speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);

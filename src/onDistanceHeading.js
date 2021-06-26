@@ -12,7 +12,6 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
     const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
     const decelerationTarget = absoluteDistance - (config.MIN_SPEED + decelerationDistance);
     const KpDirection = distance > 0 ? 1 : -1;
-    const Kp = 100;
 
     let speedSetpoint = maxSpeed;
     let hasPassedDecelerationTarget = false;
@@ -24,13 +23,13 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
 
     return (deltaTicks, pose) => {
       const distanceTravelled = robotlib.utils.math.calculateDistance(startPose, pose);
-      const headingError = heading - pose.phi;
+      const headingError = Number((heading - pose.phi).toFixed(6));
 
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
 
-      leftSpeed += Math.round(headingError * Kp) * KpDirection;
-      rightSpeed -= Math.round(headingError * Kp) * KpDirection;
+      leftSpeed += Math.round(headingError * config.HEADING_KP) * KpDirection;
+      rightSpeed -= Math.round(headingError * config.HEADING_KP) * KpDirection;
 
       if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
         hasPassedDecelerationTarget = true;
@@ -40,6 +39,8 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
       if (!hasPassedStopTarget && distanceTravelled >= absoluteDistance) {
         hasPassedStopTarget = true;
         speedSetpoint = 0;
+        leftSpeed = speedSetpoint;
+        rightSpeed = speedSetpoint;
       }
 
       leftSpeed = robotlib.utils.constrain(leftSpeed, 0, maxSpeed);
@@ -50,7 +51,7 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
 
       writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, leftTickSpeed, rightTickSpeed]);
 
-      if (hasPassedStopTarget && !leftTickSpeed && !rightTickSpeed) {
+      if (hasPassedStopTarget) {
         resolve();
       }
     };

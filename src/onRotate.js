@@ -16,8 +16,8 @@ const makeOnRotate = (config, writeToSerialPort) => {
 
     let distanceTravelled = 0;
     let speedSetpoint = maxSpeed;
-    let isAtDecelerationTarget = false;
-    let isAtStopTarget = false;
+    let hasPassedDecelerationTarget = false;
+    let hasPassedStopTarget = false;
     let leftSpeed = 0;
     let rightSpeed = 0;
 
@@ -32,14 +32,16 @@ const makeOnRotate = (config, writeToSerialPort) => {
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
 
-      if (!isAtDecelerationTarget && distanceTravelled >= decelerationTarget) {
-        isAtDecelerationTarget = true;
+      if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
+        hasPassedDecelerationTarget = true;
         speedSetpoint = config.MIN_SPEED;
       }
 
-      if (!isAtStopTarget && distanceTravelled >= distance) {
-        isAtStopTarget = true;
+      if (!hasPassedStopTarget && distanceTravelled >= distance) {
+        hasPassedStopTarget = true;
         speedSetpoint = 0;
+        leftSpeed = speedSetpoint;
+        rightSpeed = speedSetpoint;
       }
 
       const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
@@ -47,7 +49,7 @@ const makeOnRotate = (config, writeToSerialPort) => {
 
       writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, leftTickSpeed, rightTickSpeed]);
 
-      if (isAtStopTarget && !leftTickSpeed && !rightTickSpeed) {
+      if (hasPassedStopTarget) {
         resolve();
       }
     };

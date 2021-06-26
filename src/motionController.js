@@ -39,6 +39,7 @@ const motionController = (path, config) => {
     'MIN_SPEED',
     'MAX_SPEED',
     'MAX_ROTATION_SPEED',
+    'HEADING_KP',
   ];
 
   let trackPose = false;
