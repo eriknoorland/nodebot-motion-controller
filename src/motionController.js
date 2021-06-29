@@ -259,7 +259,7 @@ const motionController = (path, config) => {
     const heading = robotlib.utils.math.getHeadingFromPoseToCoordinate(currentPose, coordinate);
 
     await rotate(heading);
-    await distanceHeading(distance, heading);
+    await distanceHeading(distance, heading + currentPose.phi);
 
     return Promise.resolve();
   }
