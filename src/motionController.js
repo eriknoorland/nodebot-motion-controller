@@ -298,7 +298,8 @@ const motionController = (path, config) => {
     const x = robotlib.utils.math.fixedDecimals(lastPose.x + (distanceCenter * Math.cos(lastPose.phi)), 4);
     const y = robotlib.utils.math.fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
     const phi = Number((lastPose.phi - ((distanceRight - distanceLeft) / config.WHEEL_BASE)).toFixed(4));
-    const pose = { x, y, phi };
+    const normalizedPhi = Math.atan2(Math.sin(phi), Math.cos(phi)); // keep phi between -π and π
+    const pose = { x, y, phi: normalizedPhi };
     const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
 
     if (hasPoseChanged) {
