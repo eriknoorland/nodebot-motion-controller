@@ -7,7 +7,7 @@ const makeOnSpeedHeading = (config, writeToSerialPort) => {
   return (speed, heading, callback, resolve) => {
     const isForward = speed > 0;
     const speedSetpoint = speed - (10 * (isForward ? 1 : -1));
-    const direction = speedSetpoint > 0 ? motorDirections.FORWARD : motorDirections.REVERSE;
+    const direction = isForward ? motorDirections.FORWARD : motorDirections.REVERSE;
     const KpDirection = isForward ? 1 : -1;
 
     let leftSpeed = 0;
