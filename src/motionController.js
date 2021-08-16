@@ -183,10 +183,10 @@ const motionController = (path, config) => {
   /**
    * Moves the robot at a certain speed keeping the given heading
    * @param {Number} speed
-   * @param {Function} callback
    * @param {Number} heading
+   * @param {Function} callback
    */
-  function speedHeading(speed, heading, callback) {
+  function speedHeading(speed, heading, callback = () => {}) {
     const promise = new Promise(resolve => {
       currentCommand = onSpeedHeading(speed, heading, callback, resolve);
     });
