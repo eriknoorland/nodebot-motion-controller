@@ -23,7 +23,15 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
 
     return (deltaTicks, pose) => {
       const distanceTravelled = robotlib.utils.math.calculateDistance(startPose, pose);
-      const headingError = Number((heading - pose.phi).toFixed(6));
+      let headingError = Number((heading - pose.phi).toFixed(6));
+
+      if (headingError > Math.PI) {
+        headingError -= Math.PI * 2;
+      }
+
+      if (headingError <= -Math.PI) {
+        headingError += Math.PI * 2;
+      }
 
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
