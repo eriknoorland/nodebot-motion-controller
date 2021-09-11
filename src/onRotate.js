@@ -15,6 +15,7 @@ const makeOnRotate = (config, writeToSerialPort) => {
     const decelerationTarget = distance - (config.MIN_SPEED + decelerationDistance);
 
     let distanceTravelled = 0;
+    let lastDistanceTravelled = 0;
     let speedSetpoint = maxSpeed;
     let hasPassedDecelerationTarget = false;
     let hasPassedStopTarget = false;
@@ -28,6 +29,8 @@ const makeOnRotate = (config, writeToSerialPort) => {
       const rightDistanceTravelled = Math.abs(rightTicks * config.RIGHT_DISTANCE_PER_TICK);
 
       distanceTravelled += (leftDistanceTravelled + rightDistanceTravelled) * 0.5;
+      const deltaDistanceTravelled = distanceTravelled - lastDistanceTravelled;
+      lastDistanceTravelled = distanceTravelled;
 
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
@@ -37,7 +40,7 @@ const makeOnRotate = (config, writeToSerialPort) => {
         speedSetpoint = config.MIN_SPEED;
       }
 
-      if (!hasPassedStopTarget && distanceTravelled >= distance) {
+      if (!hasPassedStopTarget && distanceTravelled >= distance - deltaDistanceTravelled) {
         hasPassedStopTarget = true;
         speedSetpoint = 0;
         leftSpeed = speedSetpoint;
