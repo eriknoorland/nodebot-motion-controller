@@ -171,8 +171,8 @@ const motionController = (path, config) => {
    * @param {Number} speedRight
    */
   function speedLeftRight(speedLeft, speedRight) {
-    const tickSpeedLeft = robotlib.utils.math.speedToTickSpeed(speedLeft, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-    const tickSpeedRight = robotlib.utils.math.speedToTickSpeed(speedRight, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
+    const tickSpeedLeft = robotlib.utils.math.speedToTickSpeed(Math.abs(speedLeft), config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
+    const tickSpeedRight = robotlib.utils.math.speedToTickSpeed(Math.abs(speedRight), config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
     const directionLeft = speedLeft > 0 ? 1 : 0;
     const directionRight = speedRight > 0 ? 0 : 1;
 
