@@ -9,6 +9,13 @@ const makeOnDistanceHeading = require('./onDistanceHeading');
 const makeOnRotate = require('./onRotate');
 const makeOnSoftStop = require('./onSoftStop');
 
+const {
+  speedToTickSpeed,
+  calculateDistance,
+  getHeadingFromPoseToCoordinate,
+  fixedDecimals
+} = robotlib.utils.math;
+
 /**
  * motionController
  * @param {String} path
@@ -171,8 +178,8 @@ const motionController = (path, config) => {
    * @param {Number} speedRight
    */
   function speedLeftRight(speedLeft, speedRight) {
-    const tickSpeedLeft = robotlib.utils.math.speedToTickSpeed(Math.abs(speedLeft), config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-    const tickSpeedRight = robotlib.utils.math.speedToTickSpeed(Math.abs(speedRight), config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
+    const tickSpeedLeft = speedToTickSpeed(Math.abs(speedLeft), config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
+    const tickSpeedRight = speedToTickSpeed(Math.abs(speedRight), config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
     const directionLeft = speedLeft > 0 ? 1 : 0;
     const directionRight = speedRight > 0 ? 0 : 1;
 
@@ -251,12 +258,13 @@ const motionController = (path, config) => {
   /**
    * Moves the robot to the given coordinate
    * @param {Object} coordinate - { x, y }
+   * @param {Number} distanceOffset
    * @return {Promise}
    */
-  async function move2XY(coordinate) {
+  async function move2XY(coordinate, distanceOffset = 0) {
     const currentPose = getPose();
-    const distance = robotlib.utils.math.calculateDistance(currentPose, coordinate);
-    const heading = robotlib.utils.math.getHeadingFromPoseToCoordinate(currentPose, coordinate);
+    const distance = calculateDistance(currentPose, coordinate) + distanceOffset;
+    const heading = getHeadingFromPoseToCoordinate(currentPose, coordinate);
 
     await rotate(heading);
     await distanceHeading(distance, heading + currentPose.phi);
@@ -307,8 +315,8 @@ const motionController = (path, config) => {
     const distanceLeft = leftTicks * config.LEFT_DISTANCE_PER_TICK;
     const distanceRight = rightTicks * config.RIGHT_DISTANCE_PER_TICK;
     const distanceCenter = (distanceLeft + distanceRight) / 2;
-    const x = robotlib.utils.math.fixedDecimals(lastPose.x + (distanceCenter * Math.cos(lastPose.phi)), 4);
-    const y = robotlib.utils.math.fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
+    const x = fixedDecimals(lastPose.x + (distanceCenter * Math.cos(lastPose.phi)), 4);
+    const y = fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
     const phi = Number((lastPose.phi - ((distanceRight - distanceLeft) / config.WHEEL_BASE)).toFixed(4));
     const normalizedPhi = Math.atan2(Math.sin(phi), Math.cos(phi)); // keep phi between -π and π
     const pose = { x, y, phi: normalizedPhi };
