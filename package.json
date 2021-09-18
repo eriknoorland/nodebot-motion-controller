@@ -13,7 +13,7 @@
     "express": "^4.17.1",
     "ramp.js": "^1.2.1",
     "robotlib": "github:eriknoorland/node-robotlib",
-    "serialport": "^9.0.1",
+    "serialport": "^8.0.8",
     "socket.io": "^3.0.4"
   }
 }
