@@ -281,6 +281,18 @@ const motionController = (path, config) => {
     return Promise.resolve();
   }
 
+  /**
+   * Closes the serial connection
+   * @returns {Promise}
+   */
+  function close() {
+    return new Promise(resolve => {
+      port.close(error => {
+        resolve();
+      });
+    });
+  }
+
   function onOdometryData(data) {
     const pose = calculatePose(poses[poses.length - 1], data);
 
@@ -315,10 +327,6 @@ const motionController = (path, config) => {
 
   function resetCurrentCommand() {
     currentCommand = null;
-  }
-
-  function close() {
-    port.close();
   }
 
   function onPortOpen() {
