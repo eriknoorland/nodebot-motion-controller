@@ -12,7 +12,7 @@ const RIGHT_WHEEL_CIRCUMFERENCE = Math.PI * RIGHT_WHEEL_DIAMETER; // mm
 const RIGHT_DISTANCE_PER_TICK = RIGHT_WHEEL_CIRCUMFERENCE / NUM_TICKS_PER_REVOLUTION; // mm
 const ACCELERATION = 10; // mm/looptime
 const MIN_SPEED = 50; // mm/s
-const MAX_SPEED = 400; // mm/s
+const MAX_SPEED = 300; // mm/s
 const MAX_ROTATION_SPEED = MAX_SPEED / 2; // mm/s
 const HEADING_KP = 100;
 

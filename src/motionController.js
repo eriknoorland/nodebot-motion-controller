@@ -31,16 +31,8 @@ const motionController = (path, config) => {
   const poses = [{ x: 0, y: 0, phi: 0 }];
   const requiredConfigProps = [
     'LOOP_TIME',
-    'MOTOR_ENCODER_CPR',
-    'MOTOR_GEAR_RATIO',
-    'NUM_TICKS_PER_REVOLUTION',
     'WHEEL_BASE',
-    'BASE_CIRCUMFERENCE',
-    'LEFT_WHEEL_DIAMETER',
-    'LEFT_WHEEL_CIRCUMFERENCE',
     'LEFT_DISTANCE_PER_TICK',
-    'RIGHT_WHEEL_DIAMETER',
-    'RIGHT_WHEEL_CIRCUMFERENCE',
     'RIGHT_DISTANCE_PER_TICK',
     'ACCELERATION',
     'MIN_SPEED',
