@@ -1,17 +1,20 @@
-const calculateMaxSpeed = (distance, desiredSpeed, minSpeed) => {
+const calculateAccelerationDistance = require('./calculateAccelerationDistance');
+
+const calculateMaxSpeed = (distance, maxSpeed, minSpeed, acceleration) => {
   if (distance <= minSpeed * 2) {
     return minSpeed;
   }
 
-  const accDistance = desiredSpeed * 0.5;
-  const decDistance = (desiredSpeed - minSpeed) * 0.5;
-  const stopDistance = minSpeed;
+  const accelerationDistance = calculateAccelerationDistance(maxSpeed, 0, acceleration);
 
-  if (accDistance + decDistance + stopDistance > distance) {
-    return calculateMaxSpeed(distance, desiredSpeed - 25);
+  if (accelerationDistance * 2 > distance) {
+    return calculateMaxSpeed(distance, maxSpeed - (minSpeed / 2), minSpeed, acceleration);
   }
 
-  return desiredSpeed;
+  return {
+    maxSpeed,
+    accelerationDistance,
+  };
 };
 
 module.exports = calculateMaxSpeed;

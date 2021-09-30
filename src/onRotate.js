@@ -10,9 +10,8 @@ const makeOnRotate = (config, writeToSerialPort) => {
   return (angle, startPose, resolve) => {
     const distance = Math.abs((config.WHEEL_BASE / 2) * angle);
     const direction = angle > 0 ? motorDirections.ROTATE_RIGHT : motorDirections.ROTATE_LEFT;
-    const maxSpeed = calculateMaxSpeed(distance, config.MAX_SPEED, config.MIN_SPEED);
-    const decelerationDistance = 0.5 * (maxSpeed - config.MIN_SPEED);
-    const decelerationTarget = distance - (config.MIN_SPEED + decelerationDistance);
+    const { maxSpeed, accelerationDistance } = calculateMaxSpeed(distance, config.MAX_SPEED, config.MIN_SPEED, config.ACCELERATION);
+    const decelerationTarget = distance - accelerationDistance;
 
     let distanceTravelled = 0;
     let lastDistanceTravelled = 0;
@@ -32,8 +31,8 @@ const makeOnRotate = (config, writeToSerialPort) => {
       const deltaDistanceTravelled = distanceTravelled - lastDistanceTravelled;
       lastDistanceTravelled = distanceTravelled;
 
-      leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
-      rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
+      leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION_STEP);
+      rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION_STEP);
 
       if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
         hasPassedDecelerationTarget = true;

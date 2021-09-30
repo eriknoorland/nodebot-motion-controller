@@ -28,8 +28,16 @@
     <div class="wrapper">
       <div class="controls">
         <div class="controls__inner">
+          <button class="button" data-action data-method="distanceCalibrationTest">
+            Distance calibration
+          </button>
+
+          <input type="text" id="calibrationDistance" value="1000" />
+        </div>
+
+        <div class="controls__inner">
           <button class="button" data-action data-method="distanceHeading">
-            Straight
+            Distance / heading
           </button>
 
           <input type="text" id="distance" value="250" />

@@ -95,6 +95,12 @@ function onActionButtonClick(event) {
   let params = [];
 
   switch (method) {
+    case 'distanceCalibrationTest':
+      params = [
+        document.getElementById('calibrationDistance').value,
+      ];
+      break;
+
     case 'distanceHeading':
       params = [
         document.getElementById('distance').value,

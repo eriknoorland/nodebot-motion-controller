@@ -4,6 +4,7 @@ const cobs = require('cobs');
 const robotlib = require('robotlib');
 const Parser = require('./Parser');
 const requests = require('./requests');
+const makeOnDistanceCalibrationTest = require('./onDistanceCalibrationTest');
 const makeOnSpeedHeading = require('./onSpeedHeading');
 const makeOnDistanceHeading = require('./onDistanceHeading');
 const makeOnRotate = require('./onRotate');
@@ -24,6 +25,7 @@ const {
  */
 const motionController = (path, config) => {
   const eventEmitter = new EventEmitter();
+  const onDistanceCalibrationTest = makeOnDistanceCalibrationTest(config, writeToSerialPort);
   const onSpeedHeading = makeOnSpeedHeading(config, writeToSerialPort);
   const onDistanceHeading = makeOnDistanceHeading(config, writeToSerialPort);
   const onRotate = makeOnRotate(config, writeToSerialPort);
@@ -34,6 +36,7 @@ const motionController = (path, config) => {
     'WHEEL_BASE',
     'LEFT_DISTANCE_PER_TICK',
     'RIGHT_DISTANCE_PER_TICK',
+    'ACCELERATION_STEP',
     'ACCELERATION',
     'MIN_SPEED',
     'MAX_SPEED',
@@ -165,6 +168,21 @@ const motionController = (path, config) => {
   }
 
   /**
+   *
+   * @param {Number} distance
+   * @return {Promise}
+   */
+  function distanceCalibrationTest(distance) {
+    const promise = new Promise(resolve => {
+      currentCommand = onDistanceCalibrationTest(distance, resolve);
+    });
+
+    promise.then(resetCurrentCommand);
+
+    return promise;
+  }
+
+  /**
    * Control the left and right motor speed directly
    * @param {Number} speedLeft
    * @param {Number} speedRight
@@ -184,6 +202,7 @@ const motionController = (path, config) => {
    * @param {Number} speed
    * @param {Number} heading
    * @param {Function} callback
+   * @return {Promise}
    */
   function speedHeading(speed, heading, callback = () => {}) {
     const promise = new Promise(resolve => {
@@ -287,6 +306,8 @@ const motionController = (path, config) => {
    */
   function close() {
     return new Promise(resolve => {
+      writeToSerialPort([requests.START_FLAG, 0x03]);
+
       port.close(error => {
         resolve();
       });
@@ -350,6 +371,7 @@ const motionController = (path, config) => {
     setDebugLevel,
     getPose,
     appendPose,
+    distanceCalibrationTest,
     speedLeftRight,
     speedHeading,
     distanceHeading,

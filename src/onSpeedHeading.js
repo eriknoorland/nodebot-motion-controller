@@ -26,8 +26,8 @@ const makeOnSpeedHeading = (config, writeToSerialPort) => {
         headingError += Math.PI * 2;
       }
 
-      leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION);
-      rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION);
+      leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION_STEP);
+      rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION_STEP);
 
       leftSpeed += Math.round(headingError * config.HEADING_KP) * KpDirection;
       rightSpeed -= Math.round(headingError * config.HEADING_KP) * KpDirection;
