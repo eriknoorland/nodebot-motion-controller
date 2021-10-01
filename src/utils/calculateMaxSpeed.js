@@ -2,7 +2,10 @@ const calculateAccelerationDistance = require('./calculateAccelerationDistance')
 
 const calculateMaxSpeed = (distance, maxSpeed, minSpeed, acceleration) => {
   if (distance <= minSpeed * 2) {
-    return minSpeed;
+    return {
+      maxSpeed: minSpeed,
+      accelerationDistance: 0,
+    };
   }
 
   const accelerationDistance = calculateAccelerationDistance(maxSpeed, 0, acceleration);
