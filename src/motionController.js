@@ -301,6 +301,16 @@ const motionController = (path, config) => {
   }
 
   /**
+   * Stops the robot immediately cancelling the current command
+   * @returns {Promise}
+   */
+  async function emergencyStop() {
+    resetCurrentCommand();
+
+    return stop();
+  }
+
+  /**
    * Closes the serial connection
    * @returns {Promise}
    */
@@ -379,6 +389,7 @@ const motionController = (path, config) => {
     stop,
     move2XY,
     move2XYPhi,
+    emergencyStop,
   };
 };
 
