@@ -9,8 +9,8 @@ const makeOnSoftStop = (config, writeToSerialPort) => {
 
     return ({ leftTicks, rightTicks }) => {
       if (leftSpeed === null) {
-        leftSpeed = robotlib.utils.math.tickSpeedToSpeed(leftTicks, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-        rightSpeed = robotlib.utils.math.tickSpeedToSpeed(rightTicks, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
+        leftSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(leftTicks, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME));
+        rightSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(rightTicks, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME));
       }
 
       leftSpeed = slope(leftSpeed, 0, config.ACCELERATION_STEP);

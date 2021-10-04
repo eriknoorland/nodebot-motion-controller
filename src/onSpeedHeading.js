@@ -6,7 +6,7 @@ const slope = require('./utils/slope');
 const makeOnSpeedHeading = (config, writeToSerialPort) => {
   return (speed, heading, callback, resolve) => {
     const isForward = speed > 0;
-    const speedSetpoint = speed - (10 * (isForward ? 1 : -1));
+    const speedSetpoint = Math.abs(speed) - (10 * (isForward ? 1 : -1));
     const direction = isForward ? motorDirections.FORWARD : motorDirections.REVERSE;
     const KpDirection = isForward ? 1 : -1;
 
@@ -32,8 +32,8 @@ const makeOnSpeedHeading = (config, writeToSerialPort) => {
       leftSpeed += Math.round(headingError * config.HEADING_KP) * KpDirection;
       rightSpeed -= Math.round(headingError * config.HEADING_KP) * KpDirection;
 
-      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, speed);
-      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, speed);
+      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, Math.abs(speed));
+      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, Math.abs(speed));
 
       const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
       const rightTickSpeed = robotlib.utils.math.speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
