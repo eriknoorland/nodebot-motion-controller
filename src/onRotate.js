@@ -4,7 +4,8 @@ const motorDirections = require('./motorDirections');
 const calculateMaxSpeed = require('./utils/calculateMaxSpeed');
 const slope = require('./utils/slope');
 
-// TODO add ability to force direction?
+const { constrain } = robotlib.utils;
+const { speedToTickSpeed } = robotlib.utils.math;
 
 const makeOnRotate = (config, writeToSerialPort) => {
   return (angle, startPose, resolve) => {
@@ -13,45 +14,65 @@ const makeOnRotate = (config, writeToSerialPort) => {
     const { maxSpeed, accelerationDistance } = calculateMaxSpeed(distance, config.MAX_SPEED, config.MIN_SPEED, config.ACCELERATION);
     const decelerationTarget = distance - accelerationDistance;
 
-    let distanceTravelled = 0;
-    let lastDistanceTravelled = 0;
-    let speedSetpoint = maxSpeed;
-    let hasPassedDecelerationTarget = false;
-    let hasPassedStopTarget = false;
+    let leftDistanceTravelled = 0;
+    let rightDistanceTravelled = 0;
+    let lastLeftDistanceTravelled = 0;
+    let lastRightDistanceTravelled = 0;
+    let speedSetpointLeft = maxSpeed;
+    let speedSetpointRight = maxSpeed;
+    let hasPassedDecelerationTargetLeft = false;
+    let hasPassedDecelerationTargetRight = false;
+    let hasPassedStopTargetLeft = false;
+    let hasPassedStopTargetRight = false;
     let leftSpeed = 0;
     let rightSpeed = 0;
 
     writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, ...direction]);
 
     return ({ leftTicks, rightTicks }, pose) => {
-      const leftDistanceTravelled = Math.abs(leftTicks * config.LEFT_DISTANCE_PER_TICK);
-      const rightDistanceTravelled = Math.abs(rightTicks * config.RIGHT_DISTANCE_PER_TICK);
+      leftDistanceTravelled += Math.abs(leftTicks * config.LEFT_DISTANCE_PER_TICK);
+      rightDistanceTravelled += Math.abs(rightTicks * config.RIGHT_DISTANCE_PER_TICK);
 
-      distanceTravelled += (leftDistanceTravelled + rightDistanceTravelled) * 0.5;
-      const deltaDistanceTravelled = distanceTravelled - lastDistanceTravelled;
-      lastDistanceTravelled = distanceTravelled;
+      const deltaLeftDistanceTravelled = leftDistanceTravelled - lastLeftDistanceTravelled;
+      const deltaRightDistanceTravelled = rightDistanceTravelled - lastRightDistanceTravelled;
 
-      leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION_STEP);
-      rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION_STEP);
+      lastLeftDistanceTravelled = leftDistanceTravelled;
+      lastRightDistanceTravelled = rightDistanceTravelled;
 
-      if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
-        hasPassedDecelerationTarget = true;
-        speedSetpoint = config.MIN_SPEED;
+      leftSpeed = slope(leftSpeed, speedSetpointLeft, config.ACCELERATION_STEP);
+      rightSpeed = slope(rightSpeed, speedSetpointRight, config.ACCELERATION_STEP);
+
+      if (!hasPassedDecelerationTargetLeft && leftDistanceTravelled >= decelerationTarget) {
+        hasPassedDecelerationTargetLeft = true;
+        speedSetpointLeft = config.MIN_SPEED;
       }
 
-      if (!hasPassedStopTarget && distanceTravelled >= distance - deltaDistanceTravelled) {
-        hasPassedStopTarget = true;
-        speedSetpoint = 0;
-        leftSpeed = speedSetpoint;
-        rightSpeed = speedSetpoint;
+      if (!hasPassedDecelerationTargetRight && rightDistanceTravelled >= decelerationTarget) {
+        hasPassedDecelerationTargetRight = true;
+        speedSetpointRight = config.MIN_SPEED;
       }
 
-      const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-      const rightTickSpeed = robotlib.utils.math.speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
+      if (!hasPassedStopTargetLeft && leftDistanceTravelled >= distance - deltaLeftDistanceTravelled) {
+        hasPassedStopTargetLeft = true;
+        speedSetpointLeft = 0;
+        leftSpeed = 0;
+      }
+
+      if (!hasPassedStopTargetRight && rightDistanceTravelled >= distance - deltaRightDistanceTravelled) {
+        hasPassedStopTargetRight = true;
+        speedSetpointRight = 0;
+        rightSpeed = 0;
+      }
+
+      leftSpeed = constrain(leftSpeed, 0, maxSpeed);
+      rightSpeed = constrain(rightSpeed, 0, maxSpeed);
+
+      const leftTickSpeed = speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
+      const rightTickSpeed = speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
 
       writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, leftTickSpeed, rightTickSpeed]);
 
-      if (hasPassedStopTarget) {
+      if (hasPassedStopTargetLeft && hasPassedStopTargetRight) {
         resolve();
       }
     };
