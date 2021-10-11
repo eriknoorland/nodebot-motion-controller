@@ -4,6 +4,9 @@ const motorDirections = require('./motorDirections');
 const calculateMaxSpeed = require('./utils/calculateMaxSpeed');
 const slope = require('./utils/slope');
 
+const { constrain } = robotlib.utils;
+const { calculateDistance, speedToTickSpeed } = robotlib.utils.math;
+
 const makeOnDistanceHeading = (config, writeToSerialPort) => {
   return (distance, heading, startPose, resolve) => {
     const absoluteDistance = Math.abs(distance);
@@ -17,11 +20,13 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
     let hasPassedStopTarget = false;
     let leftSpeed = 0;
     let rightSpeed = 0;
+    let lastHeadingError = 0;
+    let iAcc = 0;
 
     writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, ...direction]);
 
     return (deltaTicks, pose) => {
-      const distanceTravelled = robotlib.utils.math.calculateDistance(startPose, pose);
+      const distanceTravelled = calculateDistance(startPose, pose);
       let headingError = Number((heading - pose.phi).toFixed(6));
 
       if (headingError > Math.PI) {
@@ -35,8 +40,15 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
       leftSpeed = slope(leftSpeed, speedSetpoint, config.ACCELERATION_STEP);
       rightSpeed = slope(rightSpeed, speedSetpoint, config.ACCELERATION_STEP);
 
-      leftSpeed += Math.round(headingError * config.HEADING_KP) * KpDirection;
-      rightSpeed -= Math.round(headingError * config.HEADING_KP) * KpDirection;
+      const p = headingError * config.HEADING_KP;
+      const i = (iAcc + (headingError * config.LOOP_TIME)) * config.HEADING_KI;
+      const d = ((headingError - lastHeadingError) / config.LOOP_TIME) * config.HEADING_KD;
+
+      lastHeadingError = headingError;
+      iAcc = i;
+
+      leftSpeed += Math.round(p + i + d) * KpDirection;
+      rightSpeed -= Math.round(p + i + d) * KpDirection;
 
       if (!hasPassedDecelerationTarget && distanceTravelled >= decelerationTarget) {
         hasPassedDecelerationTarget = true;
@@ -50,11 +62,11 @@ const makeOnDistanceHeading = (config, writeToSerialPort) => {
         rightSpeed = speedSetpoint;
       }
 
-      leftSpeed = robotlib.utils.constrain(leftSpeed, 0, maxSpeed);
-      rightSpeed = robotlib.utils.constrain(rightSpeed, 0, maxSpeed);
+      leftSpeed = constrain(leftSpeed, 0, maxSpeed);
+      rightSpeed = constrain(rightSpeed, 0, maxSpeed);
 
-      const leftTickSpeed = robotlib.utils.math.speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
-      const rightTickSpeed = robotlib.utils.math.speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
+      const leftTickSpeed = speedToTickSpeed(leftSpeed, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME);
+      const rightTickSpeed = speedToTickSpeed(rightSpeed, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME);
 
       writeToSerialPort([requests.START_FLAG, requests.SET_SPEED, leftTickSpeed, rightTickSpeed]);
 

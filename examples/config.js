@@ -16,6 +16,8 @@ const MIN_SPEED = 50; // mm/s
 const MAX_SPEED = 300; // mm/s
 const MAX_ROTATION_SPEED = MAX_SPEED / 2; // mm/s
 const HEADING_KP = 100;
+const HEADING_KI = 0.5;
+const HEADING_KD = 0;
 
 module.exports = {
   LOOP_TIME,
@@ -36,4 +38,6 @@ module.exports = {
   MAX_SPEED,
   MAX_ROTATION_SPEED,
   HEADING_KP,
+  HEADING_KI,
+  HEADING_KD,
 };
