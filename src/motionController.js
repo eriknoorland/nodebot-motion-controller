@@ -57,10 +57,10 @@ const motionController = (path, config) => {
    * Constructor
    */
   function constructor() {
-    isConfigComplete = requiredConfigProps.every(prop => !!config[prop]);
+    isConfigComplete = requiredConfigProps.every(prop => config[prop] !== undefined);
 
     if (!isConfigComplete) {
-      missingConfigProps = requiredConfigProps.filter(prop => !config[prop]);
+      missingConfigProps = requiredConfigProps.filter(prop => config[prop] === undefined);
     }
   }
 
