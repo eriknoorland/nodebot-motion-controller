@@ -64,6 +64,13 @@ const makeOnRotate = (config, writeToSerialPort) => {
         rightSpeed = 0;
       }
 
+      if (hasPassedStopTargetLeft && hasPassedStopTargetRight) {
+        speedSetpointLeft = 0;
+        leftSpeed = 0;
+        speedSetpointRight = 0;
+        rightSpeed = 0;
+      }
+
       leftSpeed = constrain(leftSpeed, 0, maxSpeed);
       rightSpeed = constrain(rightSpeed, 0, maxSpeed);
 
