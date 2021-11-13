@@ -8,12 +8,14 @@ const { constrain } = robotlib.utils;
 const { speedToTickSpeed } = robotlib.utils.math;
 
 const makeOnRotate = (config, writeToSerialPort) => {
-  return (angle, startPose, resolve) => {
+  return (angle, startPose, startLeftTicks, startRightTicks, resolve) => {
     const distance = Math.abs((config.WHEEL_BASE / 2) * angle);
     const direction = angle > 0 ? motorDirections.ROTATE_RIGHT : motorDirections.ROTATE_LEFT;
     const { maxSpeed, accelerationDistance } = calculateMaxSpeed(distance, config.MAX_SPEED, config.MIN_SPEED, config.ACCELERATION);
     const decelerationTarget = distance - accelerationDistance;
 
+    let lastLeftTicks = startLeftTicks;
+    let lastRightTicks = startRightTicks;
     let leftDistanceTravelled = 0;
     let rightDistanceTravelled = 0;
     let lastLeftDistanceTravelled = 0;
@@ -30,8 +32,14 @@ const makeOnRotate = (config, writeToSerialPort) => {
     writeToSerialPort([requests.START_FLAG, requests.SET_DIRECTION, ...direction]);
 
     return ({ leftTicks, rightTicks }, pose) => {
-      leftDistanceTravelled += Math.abs(leftTicks * config.LEFT_DISTANCE_PER_TICK);
-      rightDistanceTravelled += Math.abs(rightTicks * config.RIGHT_DISTANCE_PER_TICK);
+      const deltaLeftTicks = leftTicks - lastLeftTicks;
+      const deltaRightTicks = rightTicks - lastRightTicks;
+
+      lastLeftTicks = leftTicks;
+      lastRightTicks = rightTicks;
+
+      leftDistanceTravelled += Math.abs(deltaLeftTicks * config.LEFT_DISTANCE_PER_TICK);
+      rightDistanceTravelled += Math.abs(deltaRightTicks * config.RIGHT_DISTANCE_PER_TICK);
 
       const deltaLeftDistanceTravelled = leftDistanceTravelled - lastLeftDistanceTravelled;
       const deltaRightDistanceTravelled = rightDistanceTravelled - lastRightDistanceTravelled;

@@ -14,7 +14,7 @@ const {
   speedToTickSpeed,
   calculateDistance,
   getHeadingFromPoseToCoordinate,
-  fixedDecimals
+  fixedDecimals,
 } = robotlib.utils.math;
 
 /**
@@ -49,6 +49,8 @@ const motionController = (path, config) => {
   let trackPose = false;
   let isConfigComplete = false;
   let missingConfigProps = [];
+  let lastLeftTicks = null;
+  let lastRightTicks = null;
   let currentCommand;
   let port;
   let parser;
@@ -239,7 +241,7 @@ const motionController = (path, config) => {
    */
   function rotate(angle) {
     const promise = new Promise(resolve => {
-      currentCommand = onRotate(angle, getPose(), resolve);
+      currentCommand = onRotate(angle, getPose(), lastLeftTicks, lastRightTicks, resolve);
     });
 
     promise.then(resetCurrentCommand);
@@ -320,8 +322,10 @@ const motionController = (path, config) => {
     return new Promise(resolve => {
       writeToSerialPort([requests.START_FLAG, 0x03]);
 
-      port.close(error => {
-        resolve();
+      port.flush(flushError => {
+        port.close(closeError => {
+          resolve();
+        });
       });
     });
   }
@@ -337,8 +341,19 @@ const motionController = (path, config) => {
   }
 
   function calculatePose(lastPose, { leftTicks, rightTicks }) {
-    const distanceLeft = leftTicks * config.LEFT_DISTANCE_PER_TICK;
-    const distanceRight = rightTicks * config.RIGHT_DISTANCE_PER_TICK;
+    if (lastLeftTicks === null) {
+      lastLeftTicks = leftTicks;
+    }
+
+    if (lastRightTicks === null) {
+      lastRightTicks = rightTicks;
+    }
+
+    const deltaLeftTicks = leftTicks - lastLeftTicks;
+    const deltaRightTicks = rightTicks - lastRightTicks;
+
+    const distanceLeft = deltaLeftTicks * config.LEFT_DISTANCE_PER_TICK;
+    const distanceRight = deltaRightTicks * config.RIGHT_DISTANCE_PER_TICK;
     const distanceCenter = (distanceLeft + distanceRight) / 2;
     const x = fixedDecimals(lastPose.x + (distanceCenter * Math.cos(lastPose.phi)), 4);
     const y = fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
@@ -346,6 +361,9 @@ const motionController = (path, config) => {
     const normalizedPhi = Math.atan2(Math.sin(phi), Math.cos(phi)); // keep phi between -π and π
     const pose = { x, y, phi: normalizedPhi };
     const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
+
+    lastLeftTicks = leftTicks;
+    lastRightTicks = rightTicks;
 
     if (hasPoseChanged) {
       appendPose(pose);
