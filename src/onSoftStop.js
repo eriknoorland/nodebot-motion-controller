@@ -3,14 +3,22 @@ const requests = require('./requests');
 const slope = require('./utils/slope');
 
 const makeOnSoftStop = (config, writeToSerialPort) => {
-  return (resolve) => {
+  return (startLeftTicks, startRightTicks, resolve) => {
+    let lastLeftTicks = startLeftTicks;
+    let lastRightTicks = startRightTicks;
     let leftSpeed = null;
     let rightSpeed = null;
 
     return ({ leftTicks, rightTicks }) => {
+      const deltaLeftTicks = leftTicks - lastLeftTicks;
+      const deltaRightTicks = rightTicks - lastRightTicks;
+
+      lastLeftTicks = leftTicks;
+      lastRightTicks = rightTicks;
+
       if (leftSpeed === null) {
-        leftSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(leftTicks, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME));
-        rightSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(rightTicks, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME));
+        leftSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(deltaLeftTicks, config.LEFT_DISTANCE_PER_TICK, config.LOOP_TIME));
+        rightSpeed = Math.abs(robotlib.utils.math.tickSpeedToSpeed(deltaRightTicks, config.RIGHT_DISTANCE_PER_TICK, config.LOOP_TIME));
       }
 
       leftSpeed = slope(leftSpeed, 0, config.ACCELERATION_STEP);

@@ -262,7 +262,7 @@ const motionController = (path, config) => {
     }
 
     const promise = new Promise(resolve => {
-      currentCommand = onSoftStop(resolve);
+      currentCommand = onSoftStop(lastLeftTicks, lastRightTicks, resolve);
     });
 
     promise.then(resetCurrentCommand);
