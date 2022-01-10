@@ -362,6 +362,7 @@ const motionController = (path, config, options = {}) => {
     const poseOdom = estimatePoseOdom(lastPoseOdom, deltaLeftTicks, deltaRightTicks);
     const poseIMU = estimatePoseIMU(lastPoseIMU, deltaLeftTicks, deltaRightTicks, lastHeading);
     const pose = useIMU ? poseIMU : poseOdom;
+    const lastPose = useIMU ? lastPoseIMU : lastPoseOdom;
     const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
 
     lastLeftTicks = leftTicks;
