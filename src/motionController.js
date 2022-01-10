@@ -9,8 +9,11 @@ const makeOnSpeedHeading = require('./onSpeedHeading');
 const makeOnDistanceHeading = require('./onDistanceHeading');
 const makeOnRotate = require('./onRotate');
 const makeOnSoftStop = require('./onSoftStop');
+const makeEstimatePoseOdom = require('./utils/estimatePoseOdom');
+const makeEstimatePoseIMU = require('./utils/estimatePoseIMU');
 
 const {
+  deg2rad,
   speedToTickSpeed,
   calculateDistance,
   getHeadingFromPoseToCoordinate,
@@ -21,16 +24,18 @@ const {
  * motionController
  * @param {String} path
  * @param {Object} config
+ * @param {Object} options
  * @return {Object}
  */
-const motionController = (path, config) => {
+const motionController = (path, config, options = {}) => {
   const eventEmitter = new EventEmitter();
+  const hasIMU = !!options.imu;
+  const useIMU = hasIMU && options.useIMU;
   const onDistanceCalibrationTest = makeOnDistanceCalibrationTest(config, writeToSerialPort);
   const onSpeedHeading = makeOnSpeedHeading(config, writeToSerialPort);
   const onDistanceHeading = makeOnDistanceHeading(config, writeToSerialPort);
   const onRotate = makeOnRotate(config, writeToSerialPort);
   const onSoftStop = makeOnSoftStop(config, writeToSerialPort);
-  const poses = [{ x: 0, y: 0, phi: 0 }];
   const requiredConfigProps = [
     'LOOP_TIME',
     'WHEEL_BASE',
@@ -46,11 +51,16 @@ const motionController = (path, config) => {
     'HEADING_KD',
   ];
 
+  let estimatePoseOdom = makeEstimatePoseOdom(config, fixedDecimals);
+  let estimatePoseIMU = makeEstimatePoseIMU(config, fixedDecimals);
+  let lastPoseOdom = { x: 0, y: 0, phi: 0 };
+  let lastPoseIMU = { x: 0, y: 0, phi: 0 };
   let trackPose = false;
   let isConfigComplete = false;
   let missingConfigProps = [];
   let lastLeftTicks = null;
   let lastRightTicks = null;
+  let lastHeading = null;
   let currentCommand;
   let port;
   let parser;
@@ -81,13 +91,17 @@ const motionController = (path, config) => {
         return;
       }
 
-      let isReady = false;
+      let isTeensyReady = false;
 
       const isReadyTimeout = setTimeout(() => {
-        if (!isReady) {
+        if (!isTeensyReady) {
           writeToSerialPort([requests.START_FLAG, requests.IS_READY]);
         }
       }, 1000);
+
+      if (hasIMU) {
+        options.imu.on('data', onIMUData);
+      }
 
       port = new SerialPort(path, { baudRate: 115200 });
       parser = new Parser();
@@ -103,7 +117,7 @@ const motionController = (path, config) => {
       parser.on('debug', data => eventEmitter.emit('debug', data));
       parser.on('ready', () => {
         clearTimeout(isReadyTimeout);
-        isReady = true;
+        isTeensyReady = true;
         resolve();
       });
     });
@@ -156,19 +170,22 @@ const motionController = (path, config) => {
    * @return {Object}
    */
   function getPose() {
-    return poses[poses.length - 1];
+    if (useIMU){
+      return lastPoseIMU;
+    }
+
+    return lastPoseOdom;
   }
 
   /**
-   * Appends a pose to the poses array
+   * Appends a pose
    * @param {Object} pose
    */
   function appendPose(pose) {
-    poses.push(pose);
+    lastPoseOdom = pose;
+    lastPoseIMU = pose;
 
-    if (trackPose) {
-      eventEmitter.emit('pose', pose);
-    }
+    emitPose(pose);
   }
 
   /**
@@ -330,8 +347,32 @@ const motionController = (path, config) => {
     });
   }
 
+  function onIMUData(heading) {
+    lastHeading = deg2rad(heading);
+  }
+
   function onOdometryData(data) {
-    const pose = calculatePose(poses[poses.length - 1], data);
+    const { leftTicks, rightTicks } = data;
+
+    lastLeftTicks = lastLeftTicks || leftTicks;
+    lastRightTicks = lastRightTicks || rightTicks;
+
+    const deltaLeftTicks = leftTicks - lastLeftTicks;
+    const deltaRightTicks = rightTicks - lastRightTicks;
+    const poseOdom = estimatePoseOdom(lastPoseOdom, deltaLeftTicks, deltaRightTicks);
+    const poseIMU = estimatePoseIMU(lastPoseIMU, deltaLeftTicks, deltaRightTicks, lastHeading);
+    const pose = useIMU ? poseIMU : poseOdom;
+    const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
+
+    lastLeftTicks = leftTicks;
+    lastRightTicks = rightTicks;
+
+    if (hasPoseChanged) {
+      lastPoseOdom = poseOdom;
+      lastPoseIMU = poseIMU;
+
+      emitPose(pose);
+    }
 
     if (currentCommand) {
       currentCommand(data, pose);
@@ -340,36 +381,15 @@ const motionController = (path, config) => {
     eventEmitter.emit('odometry', data);
   }
 
-  function calculatePose(lastPose, { leftTicks, rightTicks }) {
-    if (lastLeftTicks === null) {
-      lastLeftTicks = leftTicks;
+  function emitPose(pose) {
+    if (trackPose) {
+      eventEmitter.emit('pose', pose);
+      eventEmitter.emit('pose_odom', lastPoseOdom);
+
+      if (hasIMU) {
+        eventEmitter.emit('pose_imu', lastPoseIMU);
+      }
     }
-
-    if (lastRightTicks === null) {
-      lastRightTicks = rightTicks;
-    }
-
-    const deltaLeftTicks = leftTicks - lastLeftTicks;
-    const deltaRightTicks = rightTicks - lastRightTicks;
-
-    const distanceLeft = deltaLeftTicks * config.LEFT_DISTANCE_PER_TICK;
-    const distanceRight = deltaRightTicks * config.RIGHT_DISTANCE_PER_TICK;
-    const distanceCenter = (distanceLeft + distanceRight) / 2;
-    const x = fixedDecimals(lastPose.x + (distanceCenter * Math.cos(lastPose.phi)), 4);
-    const y = fixedDecimals(lastPose.y + (distanceCenter * Math.sin(lastPose.phi)), 4);
-    const phi = Number((lastPose.phi - ((distanceRight - distanceLeft) / config.WHEEL_BASE)).toFixed(4));
-    const normalizedPhi = Math.atan2(Math.sin(phi), Math.cos(phi)); // keep phi between -π and π
-    const pose = { x, y, phi: normalizedPhi };
-    const hasPoseChanged = JSON.stringify(pose) !== JSON.stringify(lastPose);
-
-    lastLeftTicks = leftTicks;
-    lastRightTicks = rightTicks;
-
-    if (hasPoseChanged) {
-      appendPose(pose);
-    }
-
-    return pose;
   }
 
   function writeToSerialPort(data) {
